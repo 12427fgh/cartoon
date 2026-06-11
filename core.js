@@ -235,29 +235,76 @@ function getAllVisibleCards() {
 
 export function sendRandomReply() {
     try {
+        // 1. 优先拍一拍（10% 概率）
         if (Math.random() < 0.1 && typeof window._triggerPartnerPoke === 'function') {
             window._triggerPartnerPoke();
             return;
         }
+
+        // 2. 准备“最近的我方消息”（最多10条，用于引用）
+        const recentMyMessages = (window.messageHistory || [])
+            .filter(m => m.sender === 'mine' && (m.type === 'text' || m.type === 'image'))
+            .slice(-10);
+
+        // 辅助函数：随机选择一条我方消息作为引用对象
+        function getRandomReplyTo() {
+            if (recentMyMessages.length === 0) return null;
+            const msg = recentMyMessages[Math.floor(Math.random() * recentMyMessages.length)];
+            return {
+                id: msg.id,
+                sender: 'mine',
+                text: msg.type === 'text' ? msg.text : '🖼 图片'
+            };
+        }
+
         const r = Math.random() * 100;
+
+        // 3. 对方发一张表情包（10% 概率）
         if (r < 10 && window.otherStickers && window.otherStickers.length > 0) {
             const randomSticker = window.otherStickers[Math.floor(Math.random() * window.otherStickers.length)];
-            addMessageToHistory({ type: 'image', url: randomSticker.dataURL }, 'theirs');
+            let replyTo = null;
+            // 只有这一条回复，按 30% 概率引用
+            if (Math.random() < 0.3) replyTo = getRandomReplyTo();
+            addMessageToHistory({ type: 'image', url: randomSticker.dataURL }, 'theirs', replyTo);
             return;
         }
+
+        // 4. 字卡 + Emoji（30% 概率）
         const shouldAddEmoji = (r >= 10 && r < 40) && window.emojis && window.emojis.length > 0;
         const cards = getAllVisibleCards();
         let cardText = cards.length ? cards[Math.floor(Math.random() * cards.length)] : null;
+
         if (shouldAddEmoji) {
             const randomEmoji = getRandomEmoji();
-            addMessageToHistory(cardText ? cardText + " " + randomEmoji : randomEmoji, 'theirs');
+            const finalText = cardText ? cardText + " " + randomEmoji : randomEmoji;
+            let replyTo = null;
+            if (Math.random() < 0.3) replyTo = getRandomReplyTo();
+            addMessageToHistory(finalText, "theirs", replyTo);
             return;
         }
-        if (!cardText) { addMessageToHistory("（当前无字卡）", "theirs"); return; }
-        addMessageToHistory(cardText, "theirs");
-    } catch(e) { addMessageToHistory("（回复出错）", "theirs"); }
-}
 
+        // 5. 纯字卡回复（可能多条）
+        if (!cardText) {
+            addMessageToHistory("（当前无字卡）", "theirs");
+            return;
+        }
+
+        // 随机回复 1~5 条
+        const replyCount = Math.floor(Math.random() * 5) + 1;
+        for (let i = 0; i < replyCount; i++) {
+            let replyTo = null;
+            // 只有第一条且随机数 <0.3 时引用
+            if (i === 0 && Math.random() < 0.3) {
+                replyTo = getRandomReplyTo();
+            }
+            // 每条消息可能重复选择字卡（简单随机）
+            const msgText = cards.length ? cards[Math.floor(Math.random() * cards.length)] : cardText;
+            addMessageToHistory(msgText, "theirs", replyTo);
+        }
+    } catch(e) {
+        addMessageToHistory("（回复出错）", "theirs");
+    }
+}
 export function sendMyMessage() {
     const text = messageInput.value.trim();
     if (!text) return;
