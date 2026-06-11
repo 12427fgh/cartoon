@@ -5,22 +5,29 @@ export function showModal(modal) {
     const overlay = document.getElementById('overlay');
     if (overlay) overlay.style.display = 'block';
 }
+
 export function closeAllModals() {
+    // 关闭所有弹窗
     const modals = document.querySelectorAll('.modal');
     modals.forEach(m => {
         m.style.display = 'none';
         m.style.removeProperty('z-index');
     });
+    // 关掉遮罩层
     const overlay = document.getElementById('overlay');
     if (overlay) {
         overlay.style.display = 'none';
         overlay.style.removeProperty('z-index');
+        overlay.style.pointerEvents = 'none';
     }
-    // 确保没有残留的阻塞点击的遮罩层
-    const extraOverlays = document.querySelectorAll('.modal-backdrop, .fixed-overlay');
-    extraOverlays.forEach(el => el.remove());
-    document.body.style.overflow = ''; // 恢复滚动
+    // 删掉所有可能残留的遮罩
+    const blockers = document.querySelectorAll('.modal-backdrop, .fixed-overlay');
+    blockers.forEach(el => el.remove());
+    // 恢复页面滚动
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
 }
+
 export function bindModalClosers() {
     document.querySelectorAll('.close-modal').forEach(btn => {
         btn.onclick = () => {
