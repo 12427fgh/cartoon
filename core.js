@@ -77,34 +77,39 @@ function getRandomDelay() {
 }
 
 export function addMessageToHistory(content, sender, replyTo = null) {
-    const timeStr = getCurrentTime();
-    const dateStr = new Date().toISOString().slice(0,10);
-    let msg;
-    if (typeof content === 'string') {
-        msg = { type: 'text', text: content, sender: sender, time: timeStr, id: Date.now() + Math.random(), replyTo: replyTo, date: dateStr };
-    } else if (content.type === 'image') {
-        msg = { type: 'image', url: content.url, sender: sender, time: timeStr, id: Date.now() + Math.random(), replyTo: replyTo, date: dateStr };
-    } else {
-        msg = { type: 'text', text: String(content), sender: sender, time: timeStr, id: Date.now() + Math.random(), replyTo: replyTo, date: dateStr };
-    }
-    window.messageHistory.push(msg);
-    saveMessages();
-
-    // ========== 后台通知 ==========
-        if (msg.sender === 'theirs' && window.settings.backgroundNotificationEnabled) {
-        let body = msg.type === 'image' ? '[图片消息]' : (msg.text || '[消息]');
-        if (body.length > 50) body = body.substring(0, 50) + '…';
-        const title = `${window.otherName || '对方'} 发来消息`;
-        if (window.Notification && Notification.permission === 'granted') {
-            const notification = new Notification(title, { body: body, icon: window.otherAvatarBase64 || undefined });
-            notification.onclick = function() { window.focus(); notification.close(); };
+    try {
+        const timeStr = getCurrentTime();
+        const dateStr = new Date().toISOString().slice(0,10);
+        let msg;
+        if (typeof content === 'string') {
+            msg = { type: 'text', text: content, sender: sender, time: timeStr, id: Date.now() + Math.random(), replyTo: replyTo, date: dateStr };
+        } else if (content.type === 'image') {
+            msg = { type: 'image', url: content.url, sender: sender, time: timeStr, id: Date.now() + Math.random(), replyTo: replyTo, date: dateStr };
+        } else {
+            msg = { type: 'text', text: String(content), sender: sender, time: timeStr, id: Date.now() + Math.random(), replyTo: replyTo, date: dateStr };
         }
-    }
-    // ========== 通知结束 ==========
+        window.messageHistory.push(msg);
+        saveMessages();
 
-    appendMessageDOM(msg);
-}
-function appendMessageDOM(msg) {
+        // ========== 后台通知 ==========
+        if (msg.sender === 'theirs' && window.settings.backgroundNotificationEnabled) {
+            let body = msg.type === 'image' ? '[图片消息]' : (msg.text || '[消息]');
+            if (body.length > 50) body = body.substring(0, 50) + '…';
+            const title = `${window.otherName || '对方'} 发来消息`;
+            if (window.Notification && Notification.permission === 'granted') {
+                const notification = new Notification(title, { body: body, icon: window.otherAvatarBase64 || undefined });
+                notification.onclick = function() { window.focus(); notification.close(); };
+            }
+        }
+        // ========== 通知结束 ==========
+
+        appendMessageDOM(msg);
+    } catch (err) {
+        console.error('addMessageToHistory 出错', err);
+        alert('消息添加失败，请重试');
+        return;
+    }
+}function appendMessageDOM(msg) {
     const div = document.createElement('div');
     if (msg.sender === 'system') {
         div.className = 'system-message';
@@ -233,12 +238,16 @@ export function sendMyMessage() {
 }
 
 export function sendStickerMessage(dataURL) {
-    addMessageToHistory({ type: 'image', url: dataURL }, 'mine', currentReplyTo);
-    currentReplyTo = null;
-    updateReplyPreview();
-    setTimeout(() => sendRandomReply(), getRandomDelay());
+    try {
+        addMessageToHistory({ type: 'image', url: dataURL }, 'mine', currentReplyTo);
+        currentReplyTo = null;
+        updateReplyPreview();
+        setTimeout(() => sendRandomReply(), getRandomDelay());
+    } catch (err) {
+        console.error('sendStickerMessage 错误', err);
+        alert('发送表情包失败，请重试');
+    }
 }
-
 export function setupAvatarUpload(imgElement, isSelf) {
     imgElement.addEventListener('click', () => {
         const input = document.createElement('input');
