@@ -1,10 +1,44 @@
-// sticker-emoji.js - 修复导入重复弹窗
+// sticker-emoji.js - 修复保存失败 + 发送失败问题
 import { escapeHtml, readFileAsBase64 } from './utils.js';
 import { saveMyStickers, saveOtherStickers, saveEmojis } from './data.js';
 import { showModal, closeAllModals } from './ui-helpers.js';
 
-// 防止重复导入的标志
 let isImporting = false;
+
+/**
+ * 压缩图片，限制最大宽度，转为 base64
+ * @param {File} file 图片文件
+ * @param {number} maxWidth 最大宽度（像素）
+ * @returns {Promise<string>} 压缩后的 base64 (JPEG, 质量0.8)
+ */
+function compressImage(file, maxWidth = 800) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                // 压缩为 JPEG，质量 0.8，大大减小体积
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(compressedBase64);
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
 
 export async function addMyStickers(files) {
     if (isImporting) {
@@ -22,10 +56,11 @@ export async function addMyStickers(files) {
         for (let file of files) {
             if (!file.type.startsWith('image/')) continue;
             try {
-                const base64 = await readFileAsBase64(file);
+                // 压缩图片后再保存，避免 localStorage 超限
+                const compressedBase64 = await compressImage(file, 800);
                 window.myStickers.push({
                     id: Date.now() + '_' + Math.random(),
-                    dataURL: base64
+                    dataURL: compressedBase64
                 });
                 added++;
             } catch(e) {
@@ -38,7 +73,7 @@ export async function addMyStickers(files) {
             renderMyStickersList();
             const pickerModal = document.getElementById('stickerPickerModal');
             if (pickerModal && pickerModal.style.display === 'flex') renderStickerPicker();
-            alert(`✅ 成功添加 ${added} 张表情包` + (errors ? `，${errors} 张失败` : ''));
+            alert(`✅ 成功添加 ${added} 张表情包` + (errors ? `，${errors} 张失败（格式不支持或损坏）` : ''));
         } else {
             alert('❌ 没有有效的图片文件，或文件无法读取');
         }
@@ -59,23 +94,28 @@ export async function addOtherStickers(files) {
     isImporting = true;
     try {
         let added = 0;
+        let errors = 0;
         for (let file of files) {
             if (!file.type.startsWith('image/')) continue;
             try {
-                const base64 = await readFileAsBase64(file);
+                // 同样压缩对方表情包
+                const compressedBase64 = await compressImage(file, 800);
                 window.otherStickers.push({
                     id: Date.now() + '_' + Math.random(),
-                    dataURL: base64
+                    dataURL: compressedBase64
                 });
                 added++;
-            } catch(e) { console.warn(e); }
+            } catch(e) {
+                console.warn(e);
+                errors++;
+            }
         }
         if (added > 0) {
             saveOtherStickers();
             renderOtherStickersList();
-            alert(`✅ 成功添加 ${added} 张对方表情包`);
+            alert(`✅ 成功添加 ${added} 张对方表情包` + (errors ? `，${errors} 张失败` : ''));
         } else {
-            alert('❌ 没有有效的图片文件');
+            alert('❌ 没有有效的图片文件，或文件无法读取');
         }
     } finally {
         isImporting = false;
@@ -143,7 +183,6 @@ export function renderOtherStickersList() {
         container.appendChild(div);
     }
 }
-
 export function renderStickerPicker() {
     const container = document.getElementById('stickerPickerContent');
     if (!container) return;
@@ -152,27 +191,22 @@ export function renderStickerPicker() {
         container.innerHTML = '<div style="text-align:center; color:#999;">还没有我的表情包，请先导入😊</div>';
         return;
     }
+    // 确保发送函数存在（理论上 core.js 已经挂载好了）
+    if (typeof window.sendStickerMessage !== 'function') {
+        container.innerHTML = '<div style="text-align:center; color:#c00;">发送功能未就绪，请刷新页面重试</div>';
+        return;
+    }
     for (let s of window.myStickers) {
         const img = document.createElement('img');
         img.src = s.dataURL;
-        img.style.width = '60px';
-        img.style.height = '60px';
-        img.style.objectFit = 'cover';
-        img.style.margin = '6px';
-        img.style.cursor = 'pointer';
-        img.style.borderRadius = '12px';
+        img.style.cssText = 'width:60px; height:60px; object-fit:cover; margin:6px; cursor:pointer; border-radius:12px;';
         img.onclick = () => {
-            if (window.sendStickerMessage) {
-                window.sendStickerMessage(s.dataURL);
-            } else {
-                console.warn('sendStickerMessage 未定义');
-            }
+            window.sendStickerMessage(s.dataURL);
             closeAllModals();
         };
         container.appendChild(img);
     }
 }
-
 export function renderEmojisList() {
     const container = document.getElementById('emojisList');
     if (!container) return;
@@ -217,4 +251,7 @@ export function deleteEmoji(id) {
 export function getRandomEmoji() {
     if (window.emojis.length === 0) return null;
     return window.emojis[Math.floor(Math.random() * window.emojis.length)].char;
-}
+}// 挂载到 window，供 reply-library.js 调用
+window.renderMyStickersList = renderMyStickersList;
+window.renderOtherStickersList = renderOtherStickersList;
+window.renderEmojisList = renderEmojisList;
