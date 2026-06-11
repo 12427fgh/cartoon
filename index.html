@@ -1012,6 +1012,27 @@ if (clearChatBtn) {
         }
     });
 }
+        // Emoji 库新增按钮
+        const addEmojiBtn = document.getElementById('addEmojiBtn');
+        const newEmojiInput = document.getElementById('newEmojiInput');
+        if (addEmojiBtn && newEmojiInput) {
+            addEmojiBtn.addEventListener('click', () => {
+                const emojiChar = newEmojiInput.value.trim();
+                if (emojiChar === '') {
+                    alert('请输入 Emoji');
+                    return;
+                }
+                // 调用 sticker-emoji.js 中的 addEmoji 函数
+                addEmoji(emojiChar);
+                newEmojiInput.value = '';
+            });
+            // 按回车键也可以添加
+            newEmojiInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    addEmojiBtn.click();
+                }
+            });
+        }
         initCoreElements();
         Data.loadGroups();
         Data.loadMessages();
