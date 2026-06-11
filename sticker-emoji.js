@@ -191,7 +191,6 @@ export function renderStickerPicker() {
         container.innerHTML = '<div style="text-align:center; color:#999;">还没有我的表情包，请先导入😊</div>';
         return;
     }
-    // 确保发送函数存在（理论上 core.js 已经挂载好了）
     if (typeof window.sendStickerMessage !== 'function') {
         container.innerHTML = '<div style="text-align:center; color:#c00;">发送功能未就绪，请刷新页面重试</div>';
         return;
@@ -200,30 +199,38 @@ export function renderStickerPicker() {
         const img = document.createElement('img');
         img.src = s.dataURL;
         img.style.cssText = 'width:60px; height:60px; object-fit:cover; margin:6px; cursor:pointer; border-radius:12px;';
-        // 移动端：同时绑定 touchstart 和 click，避免延迟和事件丢失
-const sendSticker = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-        if (typeof window.sendStickerMessage === 'function') {
-            window.sendStickerMessage(s.dataURL);
-        } else {
-            console.error('sendStickerMessage 未定义');
-            alert('发送功能未准备好，请刷新页面');
-            return;
-        }
-        closeAllModals();
-    } catch (err) {
-        console.error('发送表情包出错', err);
-        alert('发送失败，请重试');
-    }
-};
-img.addEventListener('touchstart', sendSticker, { passive: false });
-img.addEventListener('click', sendSticker);
+        
+        // 只保留一个点击事件（手机不会卡了）
+        img.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // 防止快速连点
+            if (img.getAttribute('data-sending') === '1') return;
+            img.setAttribute('data-sending', '1');
+            
+            try {
+                if (typeof window.sendStickerMessage === 'function') {
+                    window.sendStickerMessage(s.dataURL);
+                } else {
+                    alert('发送功能未准备好，请刷新页面');
+                    img.removeAttribute('data-sending');
+                    return;
+                }
+                // 等一小会儿再关窗口，避免干扰
+                setTimeout(() => {
+                    closeAllModals();
+                    img.removeAttribute('data-sending');
+                }, 50);
+            } catch (err) {
+                console.error('发送表情包出错', err);
+                alert('发送失败，请重试');
+                img.removeAttribute('data-sending');
+            }
+        });
+        
         container.appendChild(img);
     }
-}
-export function renderEmojisList() {
+}export function renderEmojisList() {
     const container = document.getElementById('emojisList');
     if (!container) return;
     container.innerHTML = '';
