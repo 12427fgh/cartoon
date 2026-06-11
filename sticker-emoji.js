@@ -200,10 +200,26 @@ export function renderStickerPicker() {
         const img = document.createElement('img');
         img.src = s.dataURL;
         img.style.cssText = 'width:60px; height:60px; object-fit:cover; margin:6px; cursor:pointer; border-radius:12px;';
-        img.onclick = () => {
+        // 移动端：同时绑定 touchstart 和 click，避免延迟和事件丢失
+const sendSticker = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+        if (typeof window.sendStickerMessage === 'function') {
             window.sendStickerMessage(s.dataURL);
-            closeAllModals();
-        };
+        } else {
+            console.error('sendStickerMessage 未定义');
+            alert('发送功能未准备好，请刷新页面');
+            return;
+        }
+        closeAllModals();
+    } catch (err) {
+        console.error('发送表情包出错', err);
+        alert('发送失败，请重试');
+    }
+};
+img.addEventListener('touchstart', sendSticker, { passive: false });
+img.addEventListener('click', sendSticker);
         container.appendChild(img);
     }
 }
