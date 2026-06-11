@@ -35,9 +35,42 @@ export function loadGroups() {
 }
 
 export function saveMessages() {
-    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(window.messageHistory));
-}
+    // 1. 确保消息历史是数组
+    if (!window.messageHistory || !Array.isArray(window.messageHistory)) {
+        window.messageHistory = [];
+    }
 
+    // 2. 自动裁剪：只保留最近 200 条消息（防止存储爆炸）
+    if (window.messageHistory.length > 200) {
+        window.messageHistory = window.messageHistory.slice(-200);
+    }
+
+    // 3. 尝试保存，如果失败则清空一些旧消息再试
+    try {
+        localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(window.messageHistory));
+    } catch (e) {
+        // 存储失败（通常是 quota 超限）
+        console.warn('存储聊天记录失败，尝试裁剪更多消息', e);
+        // 再狠一点：只保留最近 100 条
+        if (window.messageHistory.length > 100) {
+            window.messageHistory = window.messageHistory.slice(-100);
+        }
+        try {
+            localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(window.messageHistory));
+        } catch (e2) {
+            // 如果还失败，就只保留最近 30 条
+            if (window.messageHistory.length > 30) {
+                window.messageHistory = window.messageHistory.slice(-30);
+            }
+            try {
+                localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(window.messageHistory));
+            } catch (e3) {
+                console.error('严重错误：无法保存聊天记录', e3);
+                alert('聊天记录存储空间不足，已自动清理旧消息，请继续使用');
+            }
+        }
+    }
+}
 export function loadMessages() {
     const saved = localStorage.getItem(STORAGE_KEYS.MESSAGES);
     if (saved) {
