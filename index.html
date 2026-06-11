@@ -756,11 +756,12 @@
     </div>
     <div class="messages-area" id="messagesArea"></div>
     <div class="input-area">
-        <input type="text" id="messageInput" placeholder="写一句话...">
-        <button id="sendMsgBtn">发送</button>
-        <button id="openStickerBtn" class="emoji-picker-btn" title="我的表情包">😊</button>
-        <button id="pokeBtn" class="poke-btn" title="拍一拍">👋</button>
-    </div>
+    <input type="text" id="messageInput" placeholder="写一句话...">
+    <button id="sendMsgBtn">发送</button>
+    <button id="openStickerBtn" class="emoji-picker-btn" title="我的表情包">😊</button>
+    <button id="sendImageBtn" class="emoji-picker-btn" title="发送图片">📷</button>
+    <button id="pokeBtn" class="poke-btn" title="拍一拍">👋</button>
+</div>
     <div id="askBtn" class="ask-btn">🎤 让对方主动说话</div>
 
     <div id="overlay" class="overlay"></div>
@@ -893,8 +894,7 @@
 
     import { initTheme, renderPresetColors, resetTheme, syncThemeFromPickers } from './theme-editor.js';
     import * as Data from './data.js';
-    import { initCoreElements, renderAllMessages, bindCoreEvents, restartAutoSpeakTimer } from './core.js';
-    import { renderMyStickersList, renderOtherStickersList, renderEmojisList, addMyStickers, addOtherStickers, addEmoji, renderStickerPicker } from './sticker-emoji.js';
+import { initCoreElements, renderAllMessages, bindCoreEvents, restartAutoSpeakTimer, sendMyImage } from './core.js';    import { renderMyStickersList, renderOtherStickersList, renderEmojisList, addMyStickers, addOtherStickers, addEmoji, renderStickerPicker } from './sticker-emoji.js';
     import { showModal, closeAllModals, bindModalClosers } from './ui-helpers.js';
     import { initReplyLibrary } from './reply-library.js';
     import './state.js';
@@ -1155,7 +1155,33 @@ if (clearChatBtn) {
                 showModal(document.getElementById('stickerPickerModal'));
             };
         }
+// ========== 发送本地图片按钮 ==========
+const sendImageBtn = document.getElementById('sendImageBtn');
+const imageInput = document.createElement('input');
+imageInput.type = 'file';
+imageInput.accept = 'image/*';
+imageInput.style.display = 'none';
+document.body.appendChild(imageInput);
 
+sendImageBtn.addEventListener('click', () => {
+    imageInput.click();
+});
+
+imageInput.addEventListener('change', async (e) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const originalText = sendImageBtn.innerText;
+        sendImageBtn.innerText = '⏳';
+        try {
+            await sendMyImage(file);
+        } catch (err) {
+            alert('发送图片失败：' + err.message);
+        } finally {
+            sendImageBtn.innerText = originalText;
+            imageInput.value = '';
+        }
+    }
+});
         const minSlider = document.getElementById('replyDelayMin'), maxSlider = document.getElementById('replyDelayMax');
         const minVal = document.getElementById('delayMinVal'), maxVal = document.getElementById('delayMaxVal');
         let replyMin = window.settings?.replyDelayMin ?? 3, replyMax = window.settings?.replyDelayMax ?? 7;
