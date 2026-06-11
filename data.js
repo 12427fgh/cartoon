@@ -41,8 +41,22 @@ export function saveMessages() {
 export function loadMessages() {
     const saved = localStorage.getItem(STORAGE_KEYS.MESSAGES);
     if (saved) {
-        window.messageHistory = JSON.parse(saved);
-        // 给旧消息补上日期（如果没有）
+        try {
+            let raw = JSON.parse(saved);
+            if (Array.isArray(raw)) {
+                // 只保留正常格式的消息，删掉坏掉的
+                window.messageHistory = raw.filter(msg => {
+                    return msg && typeof msg === 'object' &&
+                           (msg.type === 'text' || msg.type === 'image' || msg.type === 'system') &&
+                           (msg.sender === 'mine' || msg.sender === 'theirs' || msg.sender === 'system');
+                });
+            } else {
+                window.messageHistory = [];
+            }
+        } catch(e) {
+            window.messageHistory = [];
+        }
+        // 补上日期
         const today = new Date().toISOString().slice(0,10);
         for (let msg of window.messageHistory) {
             if (!msg.date) msg.date = today;
@@ -53,7 +67,6 @@ export function loadMessages() {
         ];
     }
 }
-
 export function saveMyAvatar(base64) {
     window.myAvatarBase64 = base64;
     localStorage.setItem(STORAGE_KEYS.MY_AVATAR, base64 || '');
