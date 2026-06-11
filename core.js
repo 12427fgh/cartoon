@@ -317,6 +317,7 @@ function startAutoSpeakTimer() {
 export function restartAutoSpeakTimer() { startAutoSpeakTimer(); }
 window.restartAutoSpeakTimer = restartAutoSpeakTimer;
 window.sendStickerMessage = sendStickerMessage;
+window.sendStickerMessage = window.sendStickerMessage || sendStickerMessage;
 window.simulateReply = sendRandomReply;
 
 window._triggerStatusChange = function() {
