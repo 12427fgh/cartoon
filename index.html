@@ -808,6 +808,14 @@
                 </div>
                 <div class="helper-tip" style="font-size:11px; color:#888; margin-top:6px;">🤖 开启后，对方会每隔设定时间主动发送1~5条消息</div>
             </div>
+<!-- 清除聊天记录按钮 -->
+<div class="settings-item">
+    <div class="settings-label">🗑️ 清除聊天记录</div>
+    <div class="settings-control">
+        <button id="clearChatHistoryBtn" class="primary" style="background:#ff6b6b; margin-top:0; padding:8px;">清除所有聊天记录</button>
+    </div>
+    <div class="helper-tip" style="font-size:11px; color:#888; margin-top:6px;">⚠️ 仅清除聊天消息，保留头像、表情包、字卡等设置</div>
+</div>
         </div>
     </div>
 
@@ -986,7 +994,24 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         loadPokeData();
-        
+        // 清除聊天记录按钮
+const clearChatBtn = document.getElementById('clearChatHistoryBtn');
+if (clearChatBtn) {
+    clearChatBtn.addEventListener('click', () => {
+        if (confirm('确定要清除所有聊天记录吗？\n\n此操作不可恢复，但不会影响你的表情包、字卡、设置等其他数据。')) {
+            // 清空内存中的消息
+            window.messageHistory = [];
+            // 保存到 localStorage
+            Data.saveMessages();
+            // 同时清除可能的备份（避免刷新后恢复）
+            try { localStorage.removeItem('BACKUP_V1_critical'); } catch(e) {}
+            try { localStorage.removeItem('BACKUP_V1_timestamp'); } catch(e) {}
+            // 重新显示聊天界面（清空）
+            renderAllMessages();
+            alert('聊天记录已清除');
+        }
+    });
+}
         initCoreElements();
         Data.loadGroups();
         Data.loadMessages();
@@ -1387,33 +1412,4 @@ html, body, .chat-app, .function-area, .messages-area, .input-area-wrapper {
 }
 </style>
 </body>
-    <button id="clearAllDataBtn" style="position:fixed; bottom:20px; right:20px; background:#ff0000; color:white; border:none; border-radius:30px; padding:8px 16px; font-size:14px; z-index:99999; box-shadow:0 2px 10px rgba(0,0,0,0.2);">🧹 一键清空（慎点）</button>
-<script>
-    (function() {
-        let btn = document.getElementById('clearAllDataBtn');
-        if (btn) {
-            btn.addEventListener('click', function() {
-                if (confirm('⚠️ 这个操作会永久删除所有聊天记录、表情包、设置！\n\n确定要清空吗？')) {
-                    if (confirm('最后一次确认：真的要清空吗？')) {
-                        // 清除 localStorage
-                        localStorage.clear();
-                        // 清除 IndexedDB（localforage）
-                        if (window.localforage) {
-                            localforage.clear().then(function() {
-                                alert('已清空，页面即将刷新');
-                                location.reload();
-                            }).catch(function() {
-                                alert('清空完成，页面即将刷新');
-                                location.reload();
-                            });
-                        } else {
-                            alert('已清空，页面即将刷新');
-                            location.reload();
-                        }
-                    }
-                }
-            });
-        }
-    })();
-</script>
 </html>
