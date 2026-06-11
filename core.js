@@ -109,6 +109,11 @@ function getRandomDelay() {
 
 export function addMessageToHistory(content, sender, replyTo = null) {
     try {
+        // 确保消息历史数组存在
+        if (!window.messageHistory || !Array.isArray(window.messageHistory)) {
+            window.messageHistory = [];
+        }
+
         const timeStr = getCurrentTime();
         const dateStr = new Date().toISOString().slice(0,10);
         let msg;
@@ -119,10 +124,21 @@ export function addMessageToHistory(content, sender, replyTo = null) {
         } else {
             msg = { type: 'text', text: String(content), sender: sender, time: timeStr, id: Date.now() + Math.random(), replyTo: replyTo, date: dateStr };
         }
-        window.messageHistory.push(msg);
-        saveMessages();
 
-        // ========== 后台通知 ==========
+        // 先加入内存数组
+        window.messageHistory.push(msg);
+        // 立即显示在聊天框里
+        appendMessageDOM(msg);
+
+        // 尝试保存到本地存储（即使保存失败也不影响刚才显示的消息）
+        try {
+            saveMessages();
+        } catch (saveErr) {
+            console.warn('保存聊天记录失败，可能是存储空间问题', saveErr);
+            // 不弹窗打扰奶奶，只在控制台记录
+        }
+
+        // ========== 后台通知（保持不变） ==========
         if (msg.sender === 'theirs' && window.settings.backgroundNotificationEnabled) {
             let body = msg.type === 'image' ? '[图片消息]' : (msg.text || '[消息]');
             if (body.length > 50) body = body.substring(0, 50) + '…';
@@ -132,13 +148,9 @@ export function addMessageToHistory(content, sender, replyTo = null) {
                 notification.onclick = function() { window.focus(); notification.close(); };
             }
         }
-        // ========== 通知结束 ==========
-
-        appendMessageDOM(msg);
     } catch (err) {
         console.error('addMessageToHistory 出错', err);
         alert('消息添加失败，请重试');
-        return;
     }
 }function appendMessageDOM(msg) {
     const div = document.createElement('div');
