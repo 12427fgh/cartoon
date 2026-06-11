@@ -50,7 +50,38 @@ window.sendMyPoke = function(pokeText) {
     const randomDelay = delayMin + Math.random() * (delayRange - delayMin);
     setTimeout(() => { if (typeof sendRandomReply === 'function') sendRandomReply(); }, randomDelay);
 };
-
+// ========== 图片压缩工具函数 ==========
+function compressImage(file, maxWidth = 800, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+            reject(new Error('文件不是图片'));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                resolve(compressedBase64);
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
 export function initCoreElements() {
     messagesDiv = document.getElementById('messagesArea');
     messageInput = document.getElementById('messageInput');
@@ -246,6 +277,22 @@ export function sendStickerMessage(dataURL) {
     } catch (err) {
         console.error('sendStickerMessage 错误', err);
         alert('发送表情包失败，请重试');
+    }
+}// ========== 发送本地图片 ==========
+export async function sendMyImage(file) {
+    if (!file) {
+        alert('没有选择图片');
+        return;
+    }
+    try {
+        const compressedBase64 = await compressImage(file, 800, 0.7);
+        addMessageToHistory({ type: 'image', url: compressedBase64 }, 'mine', currentReplyTo);
+        currentReplyTo = null;
+        updateReplyPreview();
+        setTimeout(() => sendRandomReply(), getRandomDelay());
+    } catch (err) {
+        console.error('发送图片出错', err);
+        alert('发送图片失败：' + err.message);
     }
 }
 export function setupAvatarUpload(imgElement, isSelf) {
